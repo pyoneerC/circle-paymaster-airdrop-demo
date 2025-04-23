@@ -1,7 +1,8 @@
-import { createPublicClient, http, getContract, encodeFunctionData,   encodePacked, parseAbi, parseErc6492Signature, formatUnits, hexToBigInt } from 'viem'
+
+import { createPublicClient, http, getContract, encodeFunctionData, encodePacked } from 'viem'
 import { createBundlerClient } from 'viem/account-abstraction'
 import { arbitrumSepolia } from 'viem/chains'
-import { toEcdsaKernelSmartAccount } from 'permissionless/accounts'
+import { toKernelSmartAccount } from 'permissionless/accounts'
 import { privateKeyToAccount } from 'viem/accounts'
 import { eip2612Permit, tokenAbi } from './permit-helpers'
 
@@ -14,38 +15,33 @@ export async function transferUSDC(
   recipientAddress: string,
   amount: bigint
 ) {
-  // Create clients
   const client = createPublicClient({
     chain: arbitrumSepolia,
     transport: http()
   })
+  
   const bundlerClient = createBundlerClient({
-    client,
+    chain: arbitrumSepolia,
     transport: http(ARBITRUM_SEPOLIA_BUNDLER)
   })
 
-  // Create accounts
   const owner = privateKeyToAccount(privateKey)
-  const account = await toEcdsaKernelSmartAccount({
-    client,
+  const account = await toKernelSmartAccount(client, {
     owner,
     version: '0.3.1'
   })
 
-  // Setup USDC contract
   const usdc = getContract({
     client,
     address: ARBITRUM_SEPOLIA_USDC,
     abi: tokenAbi,
   })
 
-  // Verify USDC balance first
   const balance = await usdc.read.balanceOf([account.address])
   if (balance < amount) {
     throw new Error(`Insufficient USDC balance. Have: ${formatUnits(balance, 6)}, Need: ${formatUnits(amount, 6)}`)
   }
 
-  // Construct and sign permit
   const permitData = await eip2612Permit({
     token: usdc,
     chain: arbitrumSepolia,
@@ -54,12 +50,13 @@ export async function transferUSDC(
     value: amount
   })
 
-  const signData = { ...permitData, primaryType: 'Permit' as const }
-  const permitSignature = await account.signTypedData(signData)
+  const permitSignature = await account.signTypedData({
+    ...permitData,
+    primaryType: 'Permit'
+  })
 
-  // Prepare transfer call
   const calls = [{
-    to: usdc.address,
+    to: ARBITRUM_SEPOLIA_USDC,
     data: encodeFunctionData({
       abi: tokenAbi,
       functionName: 'transfer',
@@ -67,7 +64,6 @@ export async function transferUSDC(
     })
   }]
 
-  // Send user operation with new paymaster format
   const userOpHash = await bundlerClient.sendUserOperation({
     account,
     calls,
@@ -75,15 +71,12 @@ export async function transferUSDC(
       address: ARBITRUM_SEPOLIA_PAYMASTER,
       data: encodePacked(
         ['bytes', 'address', 'uint256', 'bytes'],
-        ['0x00', usdc.address, amount, permitSignature]
+        ['0x00', ARBITRUM_SEPOLIA_USDC, amount, permitSignature]
       )
     }
   })
 
-  // Wait for receipt
-  const userOpReceipt = await bundlerClient.waitForUserOperationReceipt({
+  return await bundlerClient.waitForUserOperationReceipt({
     hash: userOpHash
   })
-
-  return userOpReceipt
 }
