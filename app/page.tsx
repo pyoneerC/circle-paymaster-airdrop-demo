@@ -1,145 +1,165 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from 'lucide-react'
-import { createPublicClient, http, formatUnits } from 'viem'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { arbitrumSepolia } from 'viem/chains'
-import { toEcdsaKernelSmartAccount } from 'permissionless/accounts'
-import { tokenAbi } from '@/lib/permit-helpers'
-import { transferUSDC } from '@/lib/transfer-service'
+"use client";
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { createPublicClient, http, formatUnits } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { arbitrumSepolia } from "viem/chains";
+import { toEcdsaKernelSmartAccount } from "permissionless/accounts";
+import { tokenAbi } from "@/lib/permit-helpers";
+import { transferUSDC } from "@/lib/transfer-service";
+import { toKernelSmartAccount } from "permissionless/accounts";
+import { entryPoint07Address } from "viem/account-abstraction";
 
-const ARBITRUM_SEPOLIA_USDC = '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d'
+const ARBITRUM_SEPOLIA_USDC = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
 
 export default function SmartWallet() {
-  const [loading, setLoading] = useState(false)
-  const [account, setAccount] = useState<any>(null)
-  const [recipientAddress, setRecipientAddress] = useState('')
-  const [amount, setAmount] = useState('')
-  const [status, setStatus] = useState('')
-  const [usdcBalance, setUsdcBalance] = useState<string>('0.00')
+  const [loading, setLoading] = useState(false);
+  const [account, setAccount] = useState<any>(null);
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [amount, setAmount] = useState("");
+  const [status, setStatus] = useState("");
+  const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
   useEffect(() => {
     const fetchBalance = async () => {
-      if (!account?.address) return
-      
+      if (!account?.address) return;
+
       const client = createPublicClient({
         chain: arbitrumSepolia,
-        transport: http()
-      })
+        transport: http(),
+      });
       const balance = await client.readContract({
         address: ARBITRUM_SEPOLIA_USDC,
-        abi: [{
-          inputs: [{ name: 'account', type: 'address' }],
-          name: 'balanceOf',
-          outputs: [{ name: '', type: 'uint256' }],
-          stateMutability: 'view',
-          type: 'function'
-        }],
-        functionName: 'balanceOf',
-        args: [account.address]
-      })
-      const formattedBalance = Number(formatUnits(balance as bigint, 6)).toFixed(2)
-      setUsdcBalance(formattedBalance)
-    }
-    fetchBalance()
+        abi: [
+          {
+            inputs: [{ name: "account", type: "address" }],
+            name: "balanceOf",
+            outputs: [{ name: "", type: "uint256" }],
+            stateMutability: "view",
+            type: "function",
+          },
+        ],
+        functionName: "balanceOf",
+        args: [account.address],
+      });
+      const formattedBalance = Number(
+        formatUnits(balance as bigint, 6),
+      ).toFixed(2);
+      setUsdcBalance(formattedBalance);
+    };
+    fetchBalance();
     // Set up polling interval
-    const interval = setInterval(fetchBalance, 10000) // Poll every 10 seconds
-    return () => clearInterval(interval)
-  }, [account?.address])
+    const interval = setInterval(fetchBalance, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
+  }, [account?.address]);
   const createAccount = async () => {
     try {
-      setLoading(true)
-      setStatus('Creating smart account...')
+      setLoading(true);
+      setStatus("Creating smart account...");
       // Create RPC client
       const client = createPublicClient({
         chain: arbitrumSepolia,
-        transport: http()
-      })
+        transport: http(),
+      });
       // Generate private key and create owner account
-      const privateKey = generatePrivateKey()
-      const owner = privateKeyToAccount(privateKey)
+      const privateKey = generatePrivateKey();
+      const owner = privateKeyToAccount(privateKey);
       // Create smart account
-      const smartAccount = await toEcdsaKernelSmartAccount({
-        client,
+
+      const smartAccount = await toKernelSmartAccount({
+        client: client,
+        entryPoint: {
+          address: entryPoint07Address,
+          version: "0.7",
+        },
         owners: [owner],
-        version: '0.3.1'
-      })
+        version: "0.3.1",
+      });
+
       setAccount({
         address: smartAccount.address,
         owner: owner.address,
-        privateKey: `0x${privateKey.slice(2)}`
-      })
-      setStatus('Smart account created successfully!')
+        privateKey: `0x${privateKey.slice(2)}`,
+      });
+      setStatus("Smart account created successfully!");
     } catch (error) {
-      setStatus('Error creating smart account: ' + (error as Error).message)
+      setStatus("Error creating smart account: " + (error as Error).message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
   const transfer = async () => {
     try {
-      setLoading(true)
-      setStatus('Checking balance...')
+      setLoading(true);
+      setStatus("Checking balance...");
       // Create client for balance check
       const client = createPublicClient({
         chain: arbitrumSepolia,
-        transport: http()
-      })
+        transport: http(),
+      });
       // Check balance before transfer
-      const balance = await client.readContract({
+      const balance = (await client.readContract({
         address: ARBITRUM_SEPOLIA_USDC,
         abi: tokenAbi,
-        functionName: 'balanceOf',
-        args: [account.address]
-      }) as bigint
+        functionName: "balanceOf",
+        args: [account.address],
+      })) as bigint;
       // Convert input amount to USDC decimals (6 decimals)
-      const amountInWei = BigInt(Math.floor(parseFloat(amount) * 1_000_000))
+      const amountInWei = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
       // Required gas buffer (2 USDC to be safe)
-      const gasBuffer = BigInt(2_000_000) // 2 USDC in wei
-      const totalNeeded = amountInWei + gasBuffer
+      const gasBuffer = BigInt(2_000_000); // 2 USDC in wei
+      const totalNeeded = amountInWei + gasBuffer;
       // Check if balance is sufficient including gas buffer
       if (balance < totalNeeded) {
-        const currentBalance = Number(formatUnits(balance, 6))
-        const requestedAmount = Number(amount)
-        const availableForTransfer = Math.max(0, currentBalance - 2) // Leave 2 USDC for gas
+        const currentBalance = Number(formatUnits(balance, 6));
+        const requestedAmount = Number(amount);
+        const availableForTransfer = Math.max(0, currentBalance - 2); // Leave 2 USDC for gas
         throw new Error(
           `Insufficient balance for this transfer. ` +
-          `\nCurrent balance: ${currentBalance} USDC` +
-          `\nRequested transfer: ${requestedAmount} USDC` +
-          `\nGas buffer needed: 2 USDC` +
-          `\nMaximum you can transfer: ${availableForTransfer.toFixed(2)} USDC` +
-          `\n\nPlease reduce your transfer amount or get more USDC from the faucet.`
-        )
+            `\nCurrent balance: ${currentBalance} USDC` +
+            `\nRequested transfer: ${requestedAmount} USDC` +
+            `\nGas buffer needed: 2 USDC` +
+            `\nMaximum you can transfer: ${availableForTransfer.toFixed(2)} USDC` +
+            `\n\nPlease reduce your transfer amount or get more USDC from the faucet.`,
+        );
       }
-      setStatus('Initiating transfer...')
+      setStatus("Initiating transfer...");
       const receipt = await transferUSDC(
         account.privateKey,
         recipientAddress,
-        amountInWei
-      )
+        amountInWei,
+      );
       if (receipt.success) {
-        setStatus('Transfer completed successfully!')
-        setRecipientAddress('')
-        setAmount('')
+        setStatus("Transfer completed successfully!");
+        setRecipientAddress("");
+        setAmount("");
       } else {
-        setStatus('Transfer failed. Please try again.')
+        setStatus("Transfer failed. Please try again.");
       }
     } catch (error: any) {
       // Check for specific error signatures
-      if (error.message.includes('0x65c8fd4d')) {
-        setStatus('Error: Insufficient USDC balance for transfer and gas fees (need ~2 USDC for gas)')
+      if (error.message.includes("0x65c8fd4d")) {
+        setStatus(
+          "Error: Insufficient USDC balance for transfer and gas fees (need ~2 USDC for gas)",
+        );
       } else {
-        setStatus(error.message)
+        setStatus(error.message);
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
   return (
     <>
       {account && (
@@ -152,22 +172,28 @@ export default function SmartWallet() {
         <Card>
           <CardHeader>
             <CardTitle>Smart Wallet Interface</CardTitle>
-            <CardDescription>Create and manage your smart account with Circle Paymaster</CardDescription>
+            <CardDescription>
+              Create and manage your smart account with Circle Paymaster
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="create" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="create">Create Account</TabsTrigger>
-                <TabsTrigger value="transfer" disabled={!account}>Transfer</TabsTrigger>
+                <TabsTrigger value="transfer" disabled={!account}>
+                  Transfer
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="create" className="space-y-4">
                 {!account ? (
-                  <Button 
-                    onClick={createAccount} 
+                  <Button
+                    onClick={createAccount}
                     disabled={loading}
                     className="w-full"
                   >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {loading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                     Create Smart Account
                   </Button>
                 ) : (
@@ -212,12 +238,14 @@ export default function SmartWallet() {
                       onChange={(e) => setAmount(e.target.value)}
                     />
                   </div>
-                  <Button 
-                    onClick={transfer} 
+                  <Button
+                    onClick={transfer}
                     disabled={loading || !recipientAddress || !amount}
                     className="w-full"
                   >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {loading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                     Transfer USDC
                   </Button>
                 </div>
@@ -232,5 +260,5 @@ export default function SmartWallet() {
         </Card>
       </div>
     </>
-  )
+  );
 }
