@@ -20,9 +20,9 @@ const ARBITRUM_SEPOLIA_USDC = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
 const ARBITRUM_SEPOLIA_PAYMASTER = "0x31BE08D380A21fc740883c0BC434FcFc88740b58";
 const ARBITRUM_SEPOLIA_BUNDLER = `https://public.pimlico.io/v2/${arbitrumSepolia.id}/rpc`;
 
-// You'll need to deploy these contracts and update these addresses
-const AIRDROP_CLAIMER_ADDRESS = '0x1234567890123456789012345678901234567890' as const; // Update after deployment
-const BOUNTY_TOKEN_ADDRESS = "0x..."; // Update after deployment
+// Demo mode addresses (would be replaced with real deployed addresses)
+const AIRDROP_CLAIMER_ADDRESS = '0x1234567890123456789012345678901234567890' as const; // Demo placeholder
+const BOUNTY_TOKEN_ADDRESS = "0x0987654321098765432109876543210987654321"; // Demo placeholder
 
 const MAX_GAS_USDC = BigInt(1000000); // 1 USDC
 
