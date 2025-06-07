@@ -34,7 +34,8 @@ export default function AirdropClaimer() {
 
     try {
       setIsLoading(true)
-      // For demo purposes, make everyone eligible
+      // Simulate eligibility check
+      await new Promise(resolve => setTimeout(resolve, 1000))
       setIsEligible(true)
     } catch (error) {
       console.error('Error checking eligibility:', error)

@@ -51,18 +51,9 @@ const airdropClaimerAbi = [
 ] as const;
 
 export async function checkEligibility(userAddress: string): Promise<boolean> {
-  const client = createPublicClient({
-    chain: arbitrumSepolia,
-    transport: http(),
-  });
-
-  const contract = getContract({
-    client,
-    address: AIRDROP_CLAIMER_ADDRESS as `0x${string}`,
-    abi: airdropClaimerAbi,
-  });
-
-  return await contract.read.isEligible([userAddress as `0x${string}`]);
+  // For demo purposes, make everyone eligible
+  // TODO: Replace with actual contract call after deployment
+  return true;
 }
 
 export async function claimAirdrop(privateKey: `0x${string}`) {
