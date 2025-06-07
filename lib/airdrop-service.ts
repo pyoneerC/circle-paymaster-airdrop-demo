@@ -1,4 +1,3 @@
-
 import {
   createPublicClient,
   http,
@@ -22,7 +21,7 @@ const ARBITRUM_SEPOLIA_PAYMASTER = "0x31BE08D380A21fc740883c0BC434FcFc88740b58";
 const ARBITRUM_SEPOLIA_BUNDLER = `https://public.pimlico.io/v2/${arbitrumSepolia.id}/rpc`;
 
 // You'll need to deploy these contracts and update these addresses
-const AIRDROP_CLAIMER_ADDRESS = "0x..."; // Update after deployment
+const AIRDROP_CLAIMER_ADDRESS = '0x1234567890123456789012345678901234567890' as const; // Update after deployment
 const BOUNTY_TOKEN_ADDRESS = "0x..."; // Update after deployment
 
 const MAX_GAS_USDC = BigInt(1000000); // 1 USDC
@@ -99,7 +98,7 @@ export async function claimAirdrop(privateKey: `0x${string}`) {
   // Check USDC balance for gas
   const balance = await usdc.read.balanceOf([account.address]);
   const gasBuffer = BigInt(2_000_000); // 2 USDC for gas
-  
+
   if (balance < gasBuffer) {
     throw new Error(
       `Insufficient USDC balance for gas fees. Need at least 2 USDC, have: ${formatUnits(balance, 6)}`

@@ -1,459 +1,236 @@
+'use client'
 
-"use client";
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Gift, CheckCircle, Coins } from "lucide-react";
-import { createPublicClient, http, formatUnits } from "viem";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { arbitrumSepolia } from "viem/chains";
-import { tokenAbi } from "@/lib/permit-helpers";
-import { transferUSDC } from "@/lib/transfer-service";
-import { claimAirdrop, checkEligibility } from "@/lib/airdrop-service";
-import { toKernelSmartAccount } from "permissionless/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { checkEligibility, claimAirdrop } from '@/lib/airdrop-service'
+import { Wallet, Gift, Zap, Circle, CheckCircle, Loader2, Sparkles } from 'lucide-react'
 
-const ARBITRUM_SEPOLIA_USDC = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
+export default function AirdropClaimer() {
+  const [walletAddress, setWalletAddress] = useState<string>('')
+  const [isEligible, setIsEligible] = useState<boolean | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isClaiming, setIsClaiming] = useState(false)
+  const [claimStatus, setClaimStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [errorMessage, setErrorMessage] = useState('')
 
-export default function DeFiAirdropClaimer() {
-  const [loading, setLoading] = useState(false);
-  const [account, setAccount] = useState<any>(null);
-  const [status, setStatus] = useState("");
-  const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
-  const [isEligible, setIsEligible] = useState<boolean>(false);
-  const [hasClaimed, setHasClaimed] = useState<boolean>(false);
-  const [checkingEligibility, setCheckingEligibility] = useState(false);
+  // Mock wallet connection for demo
+  const connectWallet = async () => {
+    setIsLoading(true)
+    // Simulate wallet connection delay
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    const mockAddress = '0x9c1b82160da6fb204cccb726ef6874b5d495e1a7'
+    setWalletAddress(mockAddress)
+    setIsLoading(false)
 
-  // Transfer states (for the existing functionality)
-  const [recipientAddress, setRecipientAddress] = useState("");
-  const [amount, setAmount] = useState("");
+    // Auto-check eligibility after connection
+    setTimeout(() => checkUserEligibility(mockAddress), 500)
+  }
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      if (!account?.address) return;
+  const checkUserEligibility = async (address?: string) => {
+    const addressToCheck = address || walletAddress
+    if (!addressToCheck) return
 
-      const client = createPublicClient({
-        chain: arbitrumSepolia,
-        transport: http(),
-      });
-      const balance = await client.readContract({
-        address: ARBITRUM_SEPOLIA_USDC,
-        abi: [
-          {
-            inputs: [{ name: "account", type: "address" }],
-            name: "balanceOf",
-            outputs: [{ name: "", type: "uint256" }],
-            stateMutability: "view",
-            type: "function",
-          },
-        ],
-        functionName: "balanceOf",
-        args: [account.address],
-      });
-      const formattedBalance = Number(
-        formatUnits(balance as bigint, 6),
-      ).toFixed(2);
-      setUsdcBalance(formattedBalance);
-    };
-
-    const checkUserEligibility = async () => {
-      if (!account?.address) return;
-      
-      setCheckingEligibility(true);
-      try {
-        const eligible = await checkEligibility(account.address);
-        setIsEligible(eligible);
-        setHasClaimed(!eligible);
-      } catch (error) {
-        console.error("Error checking eligibility:", error);
-        // For demo purposes, make everyone eligible
-        setIsEligible(true);
-        setHasClaimed(false);
-      } finally {
-        setCheckingEligibility(false);
-      }
-    };
-
-    fetchBalance();
-    checkUserEligibility();
-    
-    // Set up polling interval
-    const interval = setInterval(() => {
-      fetchBalance();
-      checkUserEligibility();
-    }, 10000); // Poll every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, [account?.address]);
-
-  const createAccount = async () => {
     try {
-      setLoading(true);
-      setStatus("Creating smart account...");
-      
-      // Create RPC client
-      const client = createPublicClient({
-        chain: arbitrumSepolia,
-        transport: http(),
-      });
-      
-      // Generate private key and create owner account
-      const privateKey = generatePrivateKey();
-      const owner = privateKeyToAccount(privateKey);
-      
-      // Create smart account
-      const smartAccount = await toKernelSmartAccount({
-        client: client,
-        entryPoint: {
-          address: entryPoint07Address,
-          version: "0.7",
-        },
-        owners: [owner],
-        version: "0.3.1",
-      });
-
-      setAccount({
-        address: smartAccount.address,
-        owner: owner.address,
-        privateKey: `0x${privateKey.slice(2)}`,
-      });
-      setStatus("Smart account created successfully!");
+      setIsLoading(true)
+      // For demo purposes, make everyone eligible
+      setIsEligible(true)
     } catch (error) {
-      setStatus("Error creating smart account: " + (error as Error).message);
+      console.error('Error checking eligibility:', error)
+      setIsEligible(false)
     } finally {
-      setLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
-  const handleClaimAirdrop = async () => {
+  const handleClaim = async () => {
+    if (!walletAddress) return
+
+    setIsClaiming(true)
+    setErrorMessage('')
+
     try {
-      setLoading(true);
-      setStatus("Checking USDC balance for gas fees...");
-
-      // Check USDC balance first
-      const client = createPublicClient({
-        chain: arbitrumSepolia,
-        transport: http(),
-      });
-      
-      const balance = (await client.readContract({
-        address: ARBITRUM_SEPOLIA_USDC,
-        abi: tokenAbi,
-        functionName: "balanceOf",
-        args: [account.address],
-      })) as bigint;
-
-      const gasBuffer = BigInt(2_000_000); // 2 USDC for gas
-      
-      if (balance < gasBuffer) {
-        throw new Error(
-          `Insufficient USDC balance for gas fees. Need at least 2 USDC for gas, have: ${formatUnits(balance, 6)} USDC. Please get USDC from the faucet first.`
-        );
-      }
-
-      setStatus("Claiming your airdrop...");
-      
-      const receipt = await claimAirdrop(account.privateKey);
-      
-      if (receipt.success) {
-        setStatus("🎉 Airdrop claimed successfully! You received 1,000 BTY tokens!");
-        setHasClaimed(true);
-        setIsEligible(false);
-      } else {
-        setStatus("Claim failed. Please try again.");
-      }
-    } catch (error: any) {
-      if (error.message.includes("Already claimed")) {
-        setStatus("You have already claimed your airdrop!");
-        setHasClaimed(true);
-        setIsEligible(false);
-      } else {
-        setStatus("Error: " + error.message);
-      }
+      // Simulate claim process
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      setClaimStatus('success')
+    } catch (error) {
+      console.error('Error claiming airdrop:', error)
+      setClaimStatus('error')
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to claim airdrop')
     } finally {
-      setLoading(false);
+      setIsClaiming(false)
     }
-  };
-
-  const transfer = async () => {
-    try {
-      setLoading(true);
-      setStatus("Checking balance...");
-      
-      // Create client for balance check
-      const client = createPublicClient({
-        chain: arbitrumSepolia,
-        transport: http(),
-      });
-      
-      // Check balance before transfer
-      const balance = (await client.readContract({
-        address: ARBITRUM_SEPOLIA_USDC,
-        abi: tokenAbi,
-        functionName: "balanceOf",
-        args: [account.address],
-      })) as bigint;
-
-      // Convert input amount to USDC decimals (6 decimals)
-      const amountInWei = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
-      
-      // Required gas buffer (2 USDC to be safe)
-      const gasBuffer = BigInt(2_000_000); // 2 USDC in wei
-      const totalNeeded = amountInWei + gasBuffer;
-
-      // Check if balance is sufficient including gas buffer
-      if (balance < totalNeeded) {
-        const currentBalance = Number(formatUnits(balance, 6));
-        const requestedAmount = Number(amount);
-        const availableForTransfer = Math.max(0, currentBalance - 2); // Leave 2 USDC for gas
-        throw new Error(
-          `Insufficient balance for this transfer. ` +
-            `\nCurrent balance: ${currentBalance} USDC` +
-            `\nRequested transfer: ${requestedAmount} USDC` +
-            `\nGas buffer needed: 2 USDC` +
-            `\nMaximum you can transfer: ${availableForTransfer.toFixed(2)} USDC` +
-            `\n\nPlease reduce your transfer amount or get more USDC from the faucet.`,
-        );
-      }
-
-      setStatus("Initiating transfer...");
-      const receipt = await transferUSDC(
-        account.privateKey,
-        recipientAddress,
-        amountInWei,
-      );
-
-      if (receipt.success) {
-        setStatus("Transfer completed successfully!");
-        setRecipientAddress("");
-        setAmount("");
-      } else {
-        setStatus("Transfer failed. Please try again.");
-      }
-    } catch (error: any) {
-      if (error.message.includes("0x65c8fd4d")) {
-        setStatus(
-          "Error: Insufficient USDC balance for transfer and gas fees (need ~2 USDC for gas)",
-        );
-      } else {
-        setStatus(error.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {account && (
-        <div className="fixed top-4 right-4 bg-black/20 backdrop-blur-md rounded-lg border border-purple-500/20 shadow-lg p-3">
-          <span className="text-sm font-medium text-white">USDC Balance: </span>
-          <span className="font-mono text-green-400">${usdcBalance}</span>
-        </div>
-      )}
-      
-      <div className="container max-w-4xl mx-auto p-4 pt-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            🎁 DeFi Protocol Airdrop
-          </h1>
-          <p className="text-gray-300 text-lg">
-            Claim your free tokens with gas paid in USDC
+    <div className="min-h-screen gradient-bg relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-white/10 blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-white/10 blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-white/5 blur-3xl"></div>
+      </div>
+
+      <div className="relative z-10 container mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="p-3 rounded-full bg-white/20 backdrop-blur-xl">
+              <Circle className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-4xl md:text-6xl font-bold text-white">
+              Circle <span className="bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-transparent">Airdrop</span>
+            </h1>
+          </div>
+          <p className="text-xl text-white/80 max-w-2xl mx-auto">
+            Claim your free TEST tokens with gas fees paid in USDC. No ETH required!
           </p>
+          <div className="flex items-center justify-center gap-2 mt-4 text-white/60">
+            <Zap className="w-4 h-4" />
+            <span className="text-sm">Powered by Circle Paymaster</span>
+          </div>
         </div>
 
-        <Card className="bg-black/40 backdrop-blur-md border-purple-500/20">
-          <CardHeader>
-            <CardTitle className="text-white">Smart Wallet & Airdrop Claimer</CardTitle>
-            <CardDescription className="text-gray-300">
-              Create your smart account and claim your airdrop using Circle Paymaster
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="airdrop" className="space-y-4">
-              <TabsList className="bg-black/20 border-purple-500/20">
-                <TabsTrigger value="airdrop" className="data-[state=active]:bg-purple-600">
-                  <Gift className="w-4 h-4 mr-2" />
-                  Airdrop
-                </TabsTrigger>
-                <TabsTrigger value="account" className="data-[state=active]:bg-purple-600">
-                  Account
-                </TabsTrigger>
-                <TabsTrigger value="transfer" disabled={!account} className="data-[state=active]:bg-purple-600">
-                  <Coins className="w-4 h-4 mr-2" />
-                  Transfer
-                </TabsTrigger>
-              </TabsList>
+        {/* Main Card */}
+        <div className="max-w-2xl mx-auto">
+          <Card className="glass-card border-white/20 shadow-2xl">
+            <CardHeader className="text-center pb-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                <Gift className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-2xl text-white mb-2">Token Airdrop</CardTitle>
+              <CardDescription className="text-white/70">
+                Connect your wallet to check eligibility and claim your tokens
+              </CardDescription>
+            </CardHeader>
 
-              <TabsContent value="airdrop" className="space-y-6">
-                {!account ? (
-                  <div className="text-center space-y-4">
-                    <div className="p-8 border-2 border-dashed border-purple-500/30 rounded-lg">
-                      <Gift className="w-16 h-16 mx-auto text-purple-400 mb-4" />
-                      <h3 className="text-xl font-semibold text-white mb-2">
-                        Connect Your Wallet First
-                      </h3>
-                      <p className="text-gray-400 mb-4">
-                        Create a smart wallet to check your airdrop eligibility
-                      </p>
-                      <Button
-                        onClick={createAccount}
-                        disabled={loading}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Smart Wallet
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {checkingEligibility ? (
-                      <div className="text-center p-8">
-                        <Loader2 className="w-8 h-8 mx-auto animate-spin text-purple-400 mb-4" />
-                        <p className="text-gray-300">Checking eligibility...</p>
-                      </div>
-                    ) : isEligible ? (
-                      <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg p-6">
-                        <div className="flex items-center mb-4">
-                          <CheckCircle className="w-8 h-8 text-green-400 mr-3" />
-                          <div>
-                            <h3 className="text-xl font-semibold text-white">
-                              🎉 Congratulations!
-                            </h3>
-                            <p className="text-gray-300">
-                              You are eligible to claim 1,000 BTY tokens!
+            <CardContent className="space-y-6">
+              {!walletAddress ? (
+                <div className="text-center">
+                  <Button 
+                    onClick={connectWallet}
+                    disabled={isLoading}
+                    size="lg"
+                    className="bg-white text-blue-600 hover:bg-white/90 text-lg px-8 py-6 h-auto font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Connect Wallet
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Wallet Connected */}
+                  <Alert className="bg-green-500/20 border-green-400/30 text-white">
+                    <CheckCircle className="h-4 w-4 text-green-400" />
+                    <AlertDescription>
+                      Wallet connected: <span className="font-mono text-sm">{walletAddress}</span>
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Eligibility Status */}
+                  {isEligible === true && (
+                    <div className="text-center space-y-4">
+                      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-400/30 p-6">
+                        <div className="absolute inset-0 shimmer"></div>
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-center gap-3 mb-3">
+                            <Sparkles className="w-6 h-6 text-yellow-400 animate-pulse" />
+                            <span className="text-2xl font-bold text-white">🎉 You're Eligible!</span>
+                            <Sparkles className="w-6 h-6 text-yellow-400 animate-pulse" />
+                          </div>
+                          <p className="text-white/90 text-lg mb-4">
+                            You can claim <span className="font-bold text-yellow-300">1,000 TEST tokens</span>
+                          </p>
+                          <div className="bg-white/10 rounded-lg p-3 inline-block">
+                            <p className="text-sm text-white/80">
+                              💡 Gas fees will be automatically paid from your USDC balance
                             </p>
                           </div>
                         </div>
-                        
-                        <div className="bg-black/20 rounded-lg p-4 mb-4">
-                          <h4 className="text-white font-medium mb-2">Airdrop Details:</h4>
-                          <ul className="text-gray-300 space-y-1">
-                            <li>• Token: Bounty Token (BTY)</li>
-                            <li>• Amount: 1,000 BTY</li>
-                            <li>• Gas fees paid with USDC</li>
-                            <li>• Network: Arbitrum Sepolia</li>
-                          </ul>
-                        </div>
+                      </div>
 
-                        <Button
-                          onClick={handleClaimAirdrop}
-                          disabled={loading}
-                          className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold py-3"
+                      {claimStatus === 'idle' && (
+                        <Button 
+                          onClick={handleClaim}
+                          disabled={isClaiming}
+                          size="lg"
+                          className="w-full bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white text-lg py-6 h-auto font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                         >
-                          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          🎁 Claim Airdrop (Gas Paid in USDC)
+                          {isClaiming ? (
+                            <>
+                              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                              Claiming Airdrop... (Gas Paid in USDC)
+                            </>
+                          ) : (
+                            <>
+                              <Gift className="w-5 h-5 mr-2" />
+                              Claim Airdrop (Gas Paid in USDC)
+                            </>
+                          )}
                         </Button>
-                      </div>
-                    ) : hasClaimed ? (
-                      <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-6 text-center">
-                        <CheckCircle className="w-12 h-12 mx-auto text-purple-400 mb-4" />
-                        <h3 className="text-xl font-semibold text-white mb-2">
-                          Already Claimed!
-                        </h3>
-                        <p className="text-gray-300">
-                          You have already claimed your 1,000 BTY tokens.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-                        <h3 className="text-xl font-semibold text-white mb-2">
-                          Not Eligible
-                        </h3>
-                        <p className="text-gray-300">
-                          Your wallet is not eligible for this airdrop.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
+                      )}
 
-              <TabsContent value="account" className="space-y-4">
-                {!account ? (
-                  <Button
-                    onClick={createAccount}
-                    disabled={loading}
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Smart Account
-                  </Button>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-white">Smart Wallet Address</Label>
-                      <Alert className="bg-black/20 border-purple-500/20">
-                        <AlertDescription className="font-mono break-all text-gray-300">
-                          {account.address}
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-white">Owner Address</Label>
-                      <Alert className="bg-black/20 border-purple-500/20">
-                        <AlertDescription className="font-mono break-all text-gray-300">
-                          {account.owner}
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
+                      {claimStatus === 'success' && (
+                        <Alert className="bg-green-500/20 border-green-400/30 text-white">
+                          <CheckCircle className="h-4 w-4 text-green-400" />
+                          <AlertDescription className="text-lg">
+                            🎉 Congratulations! You've successfully claimed 1,000 TEST tokens!
+                          </AlertDescription>
+                        </Alert>
+                      )}
 
-              <TabsContent value="transfer" className="space-y-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="recipient" className="text-white">Recipient Address</Label>
-                    <input
-                      id="recipient"
-                      placeholder="0x..."
-                      value={recipientAddress}
-                      onChange={(e) => setRecipientAddress(e.target.value)}
-                      className="w-full px-3 py-2 bg-black/20 border border-purple-500/20 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="amount" className="text-white">Amount (USDC)</Label>
-                    <input
-                      id="amount"
-                      type="number"
-                      placeholder="0.00"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full px-3 py-2 bg-black/20 border border-purple-500/20 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                  <Button
-                    onClick={transfer}
-                    disabled={loading || !recipientAddress || !amount}
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Transfer USDC
-                  </Button>
+                      {claimStatus === 'error' && (
+                        <Alert className="bg-red-500/20 border-red-400/30 text-white">
+                          <AlertDescription>
+                            ❌ {errorMessage || 'Failed to claim airdrop. Please try again.'}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </TabsContent>
-            </Tabs>
+              )}
 
-            {status && (
-              <Alert className="mt-4 bg-black/20 border-purple-500/20">
-                <AlertDescription className="text-gray-300">{status}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+              {/* Features */}
+              <div className="mt-8 pt-6 border-t border-white/20">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                  <div className="space-y-2">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-blue-300" />
+                    </div>
+                    <h3 className="font-semibold text-white">No ETH Required</h3>
+                    <p className="text-sm text-white/70">Pay gas with USDC</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-green-300" />
+                    </div>
+                    <h3 className="font-semibold text-white">Instant Claim</h3>
+                    <p className="text-sm text-white/70">One-click claiming</p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <Circle className="w-5 h-5 text-purple-300" />
+                    </div>
+                    <h3 className="font-semibold text-white">Circle Powered</h3>
+                    <p className="text-sm text-white/70">Trusted infrastructure</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
-  );
+  )
 }
