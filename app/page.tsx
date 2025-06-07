@@ -16,7 +16,6 @@ import { Loader2 } from "lucide-react";
 import { createPublicClient, http, formatUnits } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { arbitrumSepolia } from "viem/chains";
-import { toEcdsaKernelSmartAccount } from "permissionless/accounts";
 import { tokenAbi } from "@/lib/permit-helpers";
 import { transferUSDC } from "@/lib/transfer-service";
 import { toKernelSmartAccount } from "permissionless/accounts";

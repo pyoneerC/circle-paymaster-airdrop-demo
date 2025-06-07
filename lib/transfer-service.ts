@@ -11,7 +11,6 @@ import {
 } from "viem";
 import { createBundlerClient } from "viem/account-abstraction";
 import { arbitrumSepolia } from "viem/chains";
-import { toEcdsaKernelSmartAccount } from "permissionless/accounts";
 import { privateKeyToAccount } from "viem/accounts";
 import { eip2612Permit, tokenAbi } from "./permit-helpers";
 import { toKernelSmartAccount } from "permissionless/accounts";
@@ -21,7 +20,7 @@ const ARBITRUM_SEPOLIA_USDC = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
 const ARBITRUM_SEPOLIA_PAYMASTER = "0x31BE08D380A21fc740883c0BC434FcFc88740b58";
 const ARBITRUM_SEPOLIA_BUNDLER = `https://public.pimlico.io/v2/${arbitrumSepolia.id}/rpc`;
 
-const MAX_GAS_USDC = 1000000n; // 1 USDC
+const MAX_GAS_USDC = BigInt(1000000); // 1 USDC
 
 export async function transferUSDC(
   privateKey: `0x${string}`,
@@ -99,14 +98,14 @@ export async function transferUSDC(
   // Get additional gas charge from paymaster
   const additionalGasCharge = hexToBigInt(
     (
-      (await client.call({
+      await client.call({
         to: paymaster,
         data: encodeFunctionData({
           abi: parseAbi(["function additionalGasCharge() returns (uint256)"]),
           functionName: "additionalGasCharge",
         }),
-      })) ?? { data: "0x0" }
-    ).data,
+      })
+    )?.data ?? "0x",
   );
 
   // Get current gas prices
