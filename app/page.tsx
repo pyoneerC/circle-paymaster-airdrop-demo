@@ -371,6 +371,19 @@ export default function AirdropClaimer() {
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-12 text-center text-white/60">
+          <p className="text-sm">
+            &copy; {new Date().getFullYear()} Circle Airdrop Demo. All rights reserved.
+          </p>
+          <p className="text-xs mt-2">
+            This is a demo application. Actual token distribution and eligibility may vary.
+          </p>
+          <p className="text-xs mt-1">
+            Source code available on <a href="https://github.com/pyoneerC/circle-paymaster-airdrop-demo" className="text-blue-400 hover:underline">GitHub</a>.
+          </p>
+        </footer>
       </div>
     </div>
   )
