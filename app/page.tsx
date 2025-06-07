@@ -1,12 +1,13 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { checkEligibility, claimAirdrop } from '@/lib/airdrop-service'
 import { Wallet, Gift, Zap, Circle, CheckCircle, Loader2, Sparkles, DollarSign, RefreshCw, TrendingUp, Trophy, Star } from 'lucide-react'
+import Image from "next/image";
+import USDC from "public/USDC.png"
 
 export default function AirdropClaimer() {
   const [walletAddress, setWalletAddress] = useState<string>('')
@@ -375,14 +376,25 @@ export default function AirdropClaimer() {
         {/* Footer */}
         <footer className="mt-12 text-center text-white/60">
           <p className="text-sm">
-            &copy; {new Date().getFullYear()} Circle Airdrop Demo. All rights reserved.
+            &copy; {new Date().getFullYear()} Circle Airdrop Demo by <a href="https://maxcomperatore.com" className="text-blue-400 hover:underline">
+            maxcomperatore
+            </a>
+            . All rights reserved.
           </p>
           <p className="text-xs mt-2">
-            This is a demo application. Actual token distribution and eligibility may vary.
+            This is an MVP. Actual token distribution and eligibility may vary.
           </p>
           <p className="text-xs mt-1">
             Source code available on <a href="https://github.com/pyoneerC/circle-paymaster-airdrop-demo" className="text-blue-400 hover:underline">GitHub</a>.
           </p>
+          <br/>
+          <Image
+              src="/USDCC.png" // note the leading slash
+              alt="USDC Logo"
+              width={64}
+              height={64}
+              className="inline-block ml-2"
+          />
         </footer>
       </div>
     </div>
