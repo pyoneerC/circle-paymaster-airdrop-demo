@@ -283,7 +283,7 @@ export default function AirdropClaimer() {
                       )}
 
                       {claimStatus === 'success' && (
-                        <div className="space-y-4">
+                        <div className="space-y-4 celebration">
                           <Alert className="bg-green-500/20 border-green-400/30 text-white">
                             <Trophy className="h-4 w-4 text-yellow-400" />
                             <AlertDescription className="text-lg">

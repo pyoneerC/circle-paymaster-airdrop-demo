@@ -84,23 +84,45 @@
     @apply backdrop-blur-xl bg-white/10 border border-white/20;
   }
 
+  /* Shimmer effect for eligible status */
   .shimmer {
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.1),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
     animation: shimmer 2s infinite;
   }
 
   @keyframes shimmer {
-    0% {
-      transform: translateX(-100%);
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Celebration animation */
+  .celebration {
+    animation: celebration 0.8s ease-out;
+  }
+
+  @keyframes celebration {
+    0% { 
+      transform: scale(0.8) rotate(-5deg);
+      opacity: 0;
     }
-    100% {
-      transform: translateX(100%);
+    50% { 
+      transform: scale(1.1) rotate(2deg);
+      opacity: 1;
     }
+    100% { 
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  /* Floating tokens animation */
+  .token-float {
+    animation: tokenFloat 3s infinite ease-in-out;
+  }
+
+  @keyframes tokenFloat {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(180deg); }
   }
 
   /* Additional animations */
